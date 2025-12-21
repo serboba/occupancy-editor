@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CELL_OCCUPIED, CELL_FREE, CELL_UNKNOWN } from '../types';
+import { CELL_OCCUPIED, CELL_FREE } from '../types';
 
 // Actually standard resize cursors + arrows in CSS/SVG is better.
 
@@ -389,7 +389,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             if (tool === 'pencil' || tool === 'eraser') {
                 setIsDrawing(true);
                 lastPosRef.current = pos;
-                modifyGrid([{ x: pos.x, y: pos.y }], tool === 'pencil' ? CELL_OCCUPIED : CELL_UNKNOWN);
+                modifyGrid([{ x: pos.x, y: pos.y }], tool === 'pencil' ? CELL_OCCUPIED : CELL_FREE);
             } else if (tool === 'rect') {
                 setIsDrawing(true);
                 startPosRef.current = pos;
@@ -439,7 +439,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
                 });
             } else if ((tool === 'pencil' || tool === 'eraser') && lastPosRef.current) {
                 const points = bresenham(lastPosRef.current.x, lastPosRef.current.y, pos.x, pos.y);
-                modifyGrid(points, tool === 'pencil' ? CELL_OCCUPIED : CELL_UNKNOWN);
+                modifyGrid(points, tool === 'pencil' ? CELL_OCCUPIED : CELL_FREE);
                 lastPosRef.current = { x: pos.x, y: pos.y };
             }
         }
@@ -467,7 +467,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
     const modifyGrid = (points: { x: number, y: number }[], explicitValue?: number) => {
         const newData = new Int8Array(data);
         let changed = false;
-        const targetVal = explicitValue ?? (tool === 'eraser' ? CELL_UNKNOWN : CELL_OCCUPIED);
+        const targetVal = explicitValue ?? (tool === 'eraser' ? CELL_FREE : CELL_OCCUPIED);
 
         points.forEach(p => {
             if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height) {

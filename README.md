@@ -1,5 +1,7 @@
 # Occupancy Editor
 
+**https://serboba.github.io/occupancy-editor/**
+
 A modern web-based occupancy grid editor for robotics. Create, edit, and export occupancy maps with support for ROS, CSV, JSON, and PNG formats. Features include start/goal placement, relative coordinate systems, and grid generation tools.
 
 ![Occupancy Editor Screenshot](screenshot.png)
