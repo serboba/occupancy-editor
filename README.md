@@ -2,6 +2,8 @@
 
 A modern web-based occupancy grid editor for robotics. Create, edit, and export occupancy maps with support for ROS, CSV, JSON, and PNG formats. Features include start/goal placement, relative coordinate systems, and grid generation tools.
 
+![Occupancy Editor Screenshot](screenshot.png)
+
 ## Features
 
 ### 🛠️ Editor Tools
@@ -67,6 +69,14 @@ The `dist/` directory contains the static files ready for deployment.
 3. **Adjust View**: Pan (right-click drag), zoom (mouse wheel), or use "Center on Start"
 4. **Toggle Coordinates**: Enable "Use (0,0) at Start" to see relative coordinates
 5. **Export**: Choose your format (ROS, CSV, JSON, or PNG) and download
+
+## Demo
+
+### Drawing and Editing
+![Drawing Demo](1.gif)
+
+### Export and Features
+![Export Demo](2.gif)
 
 ## Deployment
 
