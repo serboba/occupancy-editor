@@ -78,14 +78,6 @@ The `dist/` directory contains the static files ready for deployment.
 ### Export and Features
 ![Export Demo](2.gif)
 
-## Deployment
-
-This is a static web application that can be deployed to:
-- **Vercel**: Connect your GitHub repo for automatic deployments
-- **Netlify**: Drag and drop the `dist/` folder or connect via Git
-- **GitHub Pages**: Use GitHub Actions to build and deploy
-- **Any Static Host**: Upload the `dist/` directory to any static hosting service
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
