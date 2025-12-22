@@ -51,24 +51,53 @@ export const shiftGridToStartOrigin = (
 export const generateCSV = (data: GridData, width: number, height: number, metadata?: GridMetadata, shiftToStart: boolean = false): string => {
     let csv = '';
     let finalData = data;
-    let finalMetadata = metadata;
+    let finalMetadata = metadata ? { ...metadata } : undefined;
     
-    // Shift grid if requested
-    if (shiftToStart && metadata?.start) {
-        const shifted = shiftGridToStartOrigin(data, width, height, metadata);
-        finalData = shifted.data;
-        finalMetadata = shifted.metadata;
-        
-        // For CSV export, show start as (0,0) and goal relative to start
-        // even though grid data positions remain unchanged
-        finalMetadata = {
-            ...finalMetadata,
-            start: { x: 0, y: 0 },
-            goal: metadata.goal ? {
-                x: metadata.goal.x - metadata.start.x,
-                y: metadata.goal.y - metadata.start.y
-            } : undefined
+    // Coordinate conversion: Internal (0-based) to Display (center-based)
+    // Display = Internal - center
+    const centerX = Math.floor(width / 2);
+    const centerY = Math.floor(height / 2);
+    const internalToDisplay = (ix: number, iy: number) => ({
+        x: ix - centerX,
+        y: iy - centerY
+    });
+    
+    // If no start is set, set it to (0,0) in display coordinates
+    if (!finalMetadata?.start) {
+        if (!finalMetadata) {
+            finalMetadata = {
+                resolution: 0.05,
+                origin: { x: 0, y: 0, theta: 0 }
+            };
+        }
+        finalMetadata.start = { x: 0, y: 0 };
+    } else {
+        // Convert start from internal to display coordinates
+        const startDisplay = internalToDisplay(finalMetadata.start.x, finalMetadata.start.y);
+        finalMetadata.start = { x: startDisplay.x, y: startDisplay.y };
+    }
+    
+    // Convert goal from internal to display coordinates, then relative to start
+    if (finalMetadata.goal) {
+        const goalDisplay = internalToDisplay(finalMetadata.goal.x, finalMetadata.goal.y);
+        // Goal is relative to start (which is at display 0,0)
+        finalMetadata.goal = {
+            x: goalDisplay.x - finalMetadata.start.x,
+            y: goalDisplay.y - finalMetadata.start.y
         };
+    }
+    
+    // Shift grid if requested (only affects origin, not start/goal display coords)
+    if (shiftToStart && finalMetadata?.start) {
+        const shifted = shiftGridToStartOrigin(data, width, height, {
+            ...finalMetadata,
+            // Convert display start back to internal for shiftGridToStartOrigin
+            start: { x: finalMetadata.start.x + centerX, y: finalMetadata.start.y + centerY }
+        });
+        finalData = shifted.data;
+        // Keep the display coordinates we already calculated
+        // The origin is adjusted by shiftGridToStartOrigin
+        finalMetadata.origin = shifted.metadata.origin;
     }
     
     // Add metadata as comments at the top
@@ -93,11 +122,19 @@ export const generateCSV = (data: GridData, width: number, height: number, metad
 };
 
 export const generateJSON = (state: GridState, shiftToStart: boolean = false): string => {
-    let finalState = state;
+    let finalState = { ...state };
+    
+    // If no start is set, set it to (0,0)
+    if (!finalState.metadata.start) {
+        finalState.metadata = {
+            ...finalState.metadata,
+            start: { x: 0, y: 0 }
+        };
+    }
     
     // Shift grid if requested
-    if (shiftToStart && state.metadata.start) {
-        const shifted = shiftGridToStartOrigin(state.data, state.width, state.height, state.metadata);
+    if (shiftToStart && finalState.metadata.start) {
+        const shifted = shiftGridToStartOrigin(finalState.data, finalState.width, finalState.height, finalState.metadata);
         finalState = {
             width: shifted.width,
             height: shifted.height,
@@ -107,7 +144,7 @@ export const generateJSON = (state: GridState, shiftToStart: boolean = false): s
                 // For JSON export, show start as (0,0) and goal relative to start
                 // even though grid data positions remain unchanged
                 start: { x: 0, y: 0 },
-                goal: state.metadata.goal ? {
+                goal: (state.metadata.goal && state.metadata.start) ? {
                     x: state.metadata.goal.x - state.metadata.start.x,
                     y: state.metadata.goal.y - state.metadata.start.y
                 } : undefined

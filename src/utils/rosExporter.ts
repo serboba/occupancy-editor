@@ -50,15 +50,20 @@ export function generatePGM(data: GridData, width: number, height: number, metad
  * Generates the YAML configuration file for ROS map_server.
  */
 export function generateYAML(metadata: GridMetadata, imageFilename: string = 'map.pgm', shiftToStart: boolean = false): string {
-    let finalMetadata = metadata;
+    let finalMetadata = { ...metadata };
+    
+    // If no start is set, set it to (0,0)
+    if (!finalMetadata.start) {
+        finalMetadata.start = { x: 0, y: 0 };
+    }
     
     // Shift metadata if requested
-    if (shiftToStart && metadata.start) {
+    if (shiftToStart && finalMetadata.start) {
         const shifted = shiftGridToStartOrigin(
             new Int8Array(0), // Dummy data, we only need metadata
-            metadata.start.x + 1, // Dummy dimensions
-            metadata.start.y + 1,
-            metadata
+            finalMetadata.start.x + 1, // Dummy dimensions
+            finalMetadata.start.y + 1,
+            finalMetadata
         );
         finalMetadata = shifted.metadata;
     }

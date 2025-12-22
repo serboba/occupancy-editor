@@ -3,9 +3,10 @@ import { useGrid } from './hooks/useGrid';
 import type { GridCanvasHandle } from './components/GridCanvas';
 import { GridCanvas } from './components/GridCanvas';
 import { GeneratorPanel } from './components/GeneratorPanel';
-import { Pencil, Square, Eraser, Undo, Redo, Download, Upload, MapPin, Flag, Scan, Move } from 'lucide-react';
+import { Pencil, Square, Eraser, Undo, Redo, Download, Upload, MapPin, Flag, Scan } from 'lucide-react';
 import clsx from 'clsx';
 import { saveAs } from 'file-saver';
+import type { GridMetadata } from './types';
 
 function App() {
   // Grid State
@@ -20,6 +21,8 @@ function App() {
     clearGrid,
     setStart,
     setGoal,
+    clearStart,
+    clearGoal,
     undo,
     redo,
     canUndo,
@@ -78,19 +81,59 @@ function App() {
         const { parseCSV } = await import('./utils/csvParser');
         const parsed = parseCSV(text, metadata.resolution);
         
+        // Always set start to (0,0) when importing
+        // If goal exists, adjust it relative to the original start position
+        const adjustedMetadata = { ...parsed.metadata };
+        if (parsed.metadata.start) {
+          const originalStart = parsed.metadata.start;
+          // Set start to (0,0)
+          adjustedMetadata.start = { x: 0, y: 0 };
+          // Adjust goal relative to original start
+          if (parsed.metadata.goal) {
+            adjustedMetadata.goal = {
+              x: parsed.metadata.goal.x - originalStart.x,
+              y: parsed.metadata.goal.y - originalStart.y
+            };
+          }
+        } else {
+          // If no start in CSV, set it to (0,0)
+          adjustedMetadata.start = { x: 0, y: 0 };
+        }
+        
         // Update grid and metadata
         updateGrid(parsed.data, parsed.width, parsed.height);
-        updateMetadata(parsed.metadata);
+        updateMetadata(adjustedMetadata);
       } else {
         // Try JSON
         const json = JSON.parse(text);
         const { GridImportSchema } = await import('./utils/validators');
         const parsed = GridImportSchema.parse(json);
 
+        // Always set start to (0,0) when importing
+        // If goal exists, adjust it relative to the original start position
+        // Cast to GridMetadata since the schema doesn't include optional start/goal
+        const parsedMeta = parsed.metadata as GridMetadata;
+        const adjustedMetadata: GridMetadata = { ...parsedMeta };
+        const originalStart = parsedMeta.start;
+        if (originalStart) {
+          // Set start to (0,0)
+          adjustedMetadata.start = { x: 0, y: 0 };
+          // Adjust goal relative to original start
+          if (parsedMeta.goal) {
+            adjustedMetadata.goal = {
+              x: parsedMeta.goal.x - originalStart.x,
+              y: parsedMeta.goal.y - originalStart.y
+            };
+          }
+        } else {
+          // If no start in JSON, set it to (0,0)
+          adjustedMetadata.start = { x: 0, y: 0 };
+        }
+
         // Convert number[] back to Int8Array
         const newData = new Int8Array(parsed.data);
         updateGrid(newData, parsed.width, parsed.height);
-        updateMetadata(parsed.metadata);
+        updateMetadata(adjustedMetadata);
       }
     } catch (err) {
       console.error("Import failed:", err);
@@ -146,8 +189,6 @@ function App() {
           <div className="w-px h-6 bg-gray-200 mx-1" />
           <ToolbarBtn icon={<MapPin size={18} className="text-green-600" />} active={tool === 'start'} onClick={() => setTool('start')} title="Set Start" />
           <ToolbarBtn icon={<Flag size={18} className="text-red-500" />} active={tool === 'goal'} onClick={() => setTool('goal')} title="Set Goal" />
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-          <ToolbarBtn icon={<Move size={18} />} disabled={!metadata?.start} onClick={() => canvasRef.current?.recenterAroundStart()} title={metadata?.start ? "Center on Start" : "Set a start point first"} />
           <div className="w-px h-6 bg-gray-200 mx-1" />
           <ToolbarBtn icon={<Undo size={18} />} disabled={!canUndo} onClick={undo} title="Undo (Ctrl+Z)" />
           <ToolbarBtn icon={<Redo size={18} />} disabled={!canRedo} onClick={redo} title="Redo (Ctrl+Y)" />
@@ -237,6 +278,8 @@ function App() {
             onUpdate={handleGridUpdate}
             onSetStart={setStart}
             onSetGoal={setGoal}
+            onClearStart={clearStart}
+            onClearGoal={clearGoal}
             onResize={resize}
             useRelativeCoords={useRelativeCoords}
           />

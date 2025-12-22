@@ -106,6 +106,20 @@ export function useGrid({ initialWidth, initialHeight, initialResolution }: UseG
         saveToHistory({ width, height, data: gridData, metadata: newMeta });
     }, [width, height, gridData, metadata, saveToHistory]);
 
+    const clearStart = useCallback(() => {
+        const newMeta = { ...metadata };
+        delete newMeta.start;
+        setMetadata(newMeta);
+        saveToHistory({ width, height, data: gridData, metadata: newMeta });
+    }, [width, height, gridData, metadata, saveToHistory]);
+
+    const clearGoal = useCallback(() => {
+        const newMeta = { ...metadata };
+        delete newMeta.goal;
+        setMetadata(newMeta);
+        saveToHistory({ width, height, data: gridData, metadata: newMeta });
+    }, [width, height, gridData, metadata, saveToHistory]);
+
     // Resizing logic with offset
     const resizeGrid = useCallback((newWidth: number, newHeight: number, originX: number = 0, originY: number = 0) => {
         const newData = new Int8Array(newWidth * newHeight).fill(CELL_FREE);
@@ -144,6 +158,8 @@ export function useGrid({ initialWidth, initialHeight, initialResolution }: UseG
         clearGrid,
         setStart,
         setGoal,
+        clearStart,
+        clearGoal,
         canUndo: historyIndexRef.current > 0,
         canRedo: historyIndexRef.current < historyRef.current.length - 1
     };
