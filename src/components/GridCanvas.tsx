@@ -51,15 +51,16 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
     const activeOX = ghostDims ? ghostDims.ox : 0;
     const activeOY = ghostDims ? ghostDims.oy : 0;
 
-    // Auto-fit function
+    // Auto-fit function (center the grid)
     const fitView = useCallback(() => {
         if (!containerRef.current) return;
         const { clientWidth, clientHeight } = containerRef.current;
         const kx = (clientWidth * 0.95) / width;
         const ky = (clientHeight * 0.95) / height;
         const k = Math.min(Math.min(kx, ky), 50);
-        const x = (clientWidth - width * k) / 2;
-        const y = (clientHeight - height * k) / 2;
+        // Center the grid (transform.x and transform.y represent the center point)
+        const x = clientWidth / 2;
+        const y = clientHeight / 2;
         setTransform({ k, x, y });
     }, [width, height]);
 
@@ -71,18 +72,39 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
         }
     }, [initialized, fitView]);
 
+    // Coordinate conversion helpers
+    // Display coordinates: center-based (-width/2 to +width/2, -height/2 to +height/2)
+    // Internal coordinates: 0-based (0 to width-1, 0 to height-1)
+    const displayToInternal = useCallback((dx: number, dy: number) => {
+        const centerX = Math.floor(activeW / 2);
+        const centerY = Math.floor(activeH / 2);
+        return {
+            x: Math.floor(dx + centerX),
+            y: Math.floor(dy + centerY)
+        };
+    }, [activeW, activeH]);
+    
+    const internalToDisplay = useCallback((ix: number, iy: number) => {
+        const centerX = Math.floor(activeW / 2);
+        const centerY = Math.floor(activeH / 2);
+        return {
+            x: ix - centerX,
+            y: iy - centerY
+        };
+    }, [activeW, activeH]);
+
     // Recenter around start point
     const recenterAroundStart = useCallback(() => {
         if (!metadata?.start || !containerRef.current) return;
         
         setTransform(prev => {
             const { clientWidth, clientHeight } = containerRef.current!;
-            const startX = metadata.start!.x;
-            const startY = metadata.start!.y;
+            // Start is in internal coordinates, convert to display
+            const startDisplay = internalToDisplay(metadata.start!.x, metadata.start!.y);
             
-            // Calculate the screen position of the start point
-            const startScreenX = prev.x + startX * prev.k;
-            const startScreenY = prev.y + startY * prev.k;
+            // Calculate the screen position of the start point (center-based)
+            const startScreenX = prev.x + startDisplay.x * prev.k;
+            const startScreenY = prev.y + startDisplay.y * prev.k;
             
             // Calculate how much we need to shift to center it
             const deltaX = clientWidth / 2 - startScreenX;
@@ -95,53 +117,53 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
                 y: prev.y + deltaY
             };
         });
-    }, [metadata]);
+    }, [metadata, activeW, activeH, internalToDisplay]);
 
     // Expose resetView and recenterAroundStart via ref
     React.useImperativeHandle(ref, () => ({
         resetView: fitView,
         recenterAroundStart
     }));
-
-    // Helper: Screen to World (Grid coordinates)
-    const screenToWorld = (sx: number, sy: number) => {
+    
+    // Helper: Screen to Display coordinates (center-based)
+    const screenToDisplay = useCallback((sx: number, sy: number) => {
+        // transform.x and transform.y represent the center point in screen coordinates
+        // Convert screen coords to display coords (center-based)
+        const displayX = (sx - transform.x) / transform.k;
+        const displayY = (sy - transform.y) / transform.k;
         return {
-            x: Math.floor((sx - transform.x) / transform.k),
-            y: Math.floor((sy - transform.y) / transform.k)
+            x: Math.floor(displayX),
+            y: Math.floor(displayY)
         };
-    };
+    }, [transform]);
 
-    // Helper for handle styles
+    // Helper for handle styles (center-based coordinates)
     const handleStyle = (pos: 'top' | 'bottom' | 'left' | 'right'): React.CSSProperties => {
-        // Calculate position in screen space
-        // Grid TopLeft in screen: tx, ty
-        // Grid Width in screen: w * k
-        const gx = transform.x;
-        const gy = transform.y;
-        const gw = width * transform.k;
-        const gh = height * transform.k;
-        const size = 10 * Math.max(0.5, Math.min(1, transform.k / 10)); // Dynamic handle size?
+        // Calculate position in screen space (center-based)
+        // transform.x/y is the center point
+        const halfW = (activeW * transform.k) / 2;
+        const halfH = (activeH * transform.k) / 2;
+        const size = 10 * Math.max(0.5, Math.min(1, transform.k / 10));
         const offset = 5;
 
         const style: React.CSSProperties = {
             position: 'absolute',
-            zIndex: 100, // Above canvas
-            // centered on edge
+            zIndex: 100,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             userSelect: 'none',
         };
 
-        // Centered handles
+        // Centered handles (positioned relative to center)
         if (pos === 'top') {
-            return { ...style, top: gy - size - offset, left: gx + gw / 2 - 20, width: 40, height: size, cursor: 'ns-resize' };
+            return { ...style, top: transform.y - halfH - size - offset, left: transform.x - 20, width: 40, height: size, cursor: 'ns-resize' };
         } else if (pos === 'bottom') {
-            return { ...style, top: gy + gh + offset, left: gx + gw / 2 - 20, width: 40, height: size, cursor: 'ns-resize' };
+            return { ...style, top: transform.y + halfH + offset, left: transform.x - 20, width: 40, height: size, cursor: 'ns-resize' };
         } else if (pos === 'left') {
-            return { ...style, top: gy + gh / 2 - 20, left: gx - size - offset, width: size, height: 40, cursor: 'ew-resize' };
+            return { ...style, top: transform.y - 20, left: transform.x - halfW - size - offset, width: size, height: 40, cursor: 'ew-resize' };
         } else if (pos === 'right') {
-            return { ...style, top: gy + gh / 2 - 20, left: gx + gw + offset, width: size, height: 40, cursor: 'ew-resize' };
+            return { ...style, top: transform.y - 20, left: transform.x + halfW + offset, width: size, height: 40, cursor: 'ew-resize' };
         }
         return {};
     };
@@ -190,12 +212,18 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
             ctx.save();
+            
+            // Center-based coordinate system
+            const centerX = Math.floor(activeW / 2);
+            const centerY = Math.floor(activeH / 2);
+            
             ctx.translate(transform.x, transform.y);
             ctx.scale(transform.k, transform.k);
+            ctx.translate(-centerX, -centerY); // Shift so center is at (0,0)
 
             // 1. Draw Grid Background (Active Area)
             ctx.fillStyle = '#ffffff'; // Pure White
-            ctx.fillRect(0, 0, activeW, activeH);
+            ctx.fillRect(-centerX, -centerY, activeW, activeH);
 
             // 2. Render Existing Data
             // If resizing, we need to respect offset (activeOX, activeOY)
@@ -224,10 +252,11 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             tempCanvas.getContext('2d')?.putImageData(gridImage, 0, 0);
 
             ctx.imageSmoothingEnabled = false;
-            // Draw original data at -activeOX, -activeOY relative to new origin?
-            // If I expanded LEFT by 10 (activeOX = 10, offset of old origin in new grid), 
-            // then old data starts at (10, 0) in new grid.
-            ctx.drawImage(tempCanvas, activeOX, activeOY);
+            // Draw original data centered
+            // Map internal coordinates (0-based) to display coordinates (center-based)
+            const oldCenterX = Math.floor(width / 2);
+            const oldCenterY = Math.floor(height / 2);
+            ctx.drawImage(tempCanvas, -oldCenterX + activeOX, -oldCenterY + activeOY);
 
             // 3. Grid Lines (Black Mesh)
             ctx.lineWidth = 0.5 / transform.k;
@@ -237,53 +266,80 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             ctx.strokeStyle = '#555555'; // Dark Grey
 
             ctx.beginPath();
-            // Vertical lines
-            for (let x = 0; x <= activeW; x++) {
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, activeH);
+            // Vertical lines (center-based)
+            // Display coordinates: -centerX to (activeW - centerX - 1)
+            // For 50x50: center=25, range is -25 to +24 (50 cells, no true center)
+            // For 51x51: center=25, range is -25 to +25 (51 cells, center at 0,0)
+            const minX = -centerX;
+            const maxX = activeW - centerX; // Exclusive upper bound
+            const minY = -centerY;
+            const maxY = activeH - centerY; // Exclusive upper bound
+            
+            for (let x = minX; x <= maxX; x++) {
+                ctx.moveTo(x, minY);
+                ctx.lineTo(x, maxY);
             }
             // Horizontal lines
-            for (let y = 0; y <= activeH; y++) {
-                ctx.moveTo(0, y);
-                ctx.lineTo(activeW, y);
+            for (let y = minY; y <= maxY; y++) {
+                ctx.moveTo(minX, y);
+                ctx.lineTo(maxX, y);
             }
             ctx.stroke();
 
-            // 4. Main Border (Thicker)
+            // 4. Main Border (Thicker) - center-based
             ctx.lineWidth = 2 / transform.k;
             ctx.strokeStyle = '#000000';
-            ctx.strokeRect(0, 0, activeW, activeH);
+            ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+            
+            // 4.5. Center axes (highlight 0,0)
+            ctx.lineWidth = 1 / transform.k;
+            ctx.strokeStyle = '#3b82f6'; // Blue for center axes
+            ctx.beginPath();
+            // Vertical center line
+            ctx.moveTo(0, minY);
+            ctx.lineTo(0, maxY);
+            // Horizontal center line
+            ctx.moveTo(minX, 0);
+            ctx.lineTo(maxX, 0);
+            ctx.stroke();
 
-            // 5. Start / Goal
+            // 5. Start / Goal (in display coordinates, already center-based)
             const drawPoint = (p: { x: number, y: number }, color: string) => {
-                // Adjust for offset if ghost dims active
-                const px = p.x + activeOX;
-                const py = p.y + activeOY;
-
-                if (px >= 0 && px < activeW && py >= 0 && py < activeH) {
+                // p is in display coordinates (center-based)
+                const px = p.x;
+                const py = p.y;
+                
+                // Check if within bounds
+                if (px >= minX && px < maxX && py >= minY && py < maxY) {
                     ctx.fillStyle = color;
                     ctx.fillRect(px, py, 1, 1);
                 }
             };
 
-            if (metadata?.start) drawPoint(metadata.start, '#22c55e');
-            if (metadata?.goal) drawPoint(metadata.goal, '#ef4444');
+            if (metadata?.start) {
+                // Convert internal coords to display coords if needed
+                const startDisplay = internalToDisplay(metadata.start.x, metadata.start.y);
+                drawPoint(startDisplay, '#22c55e');
+            }
+            if (metadata?.goal) {
+                const goalDisplay = internalToDisplay(metadata.goal.x, metadata.goal.y);
+                drawPoint(goalDisplay, '#ef4444');
+            }
 
-            // 6. Preview Rect
+            // 6. Preview Rect (convert to display coordinates)
             if (previewRect) {
                 ctx.fillStyle = tool === 'eraser' ? 'rgba(251, 252, 254, 0.8)' : 'rgba(0,0,0,0.5)';
-                // Adjust for offset? drawing tools use current screen coords map to activeW?
-                // Wait, if I resize, I disable tools.
-                ctx.fillRect(previewRect.x, previewRect.y, previewRect.w, previewRect.h);
+                // previewRect is in internal coordinates, convert to display
+                const rectDisplay = internalToDisplay(previewRect.x, previewRect.y);
+                ctx.fillRect(rectDisplay.x, rectDisplay.y, previewRect.w, previewRect.h);
             }
 
             ctx.restore();
 
-            // 7. Axis Rulers (Outside transform usually, or transformed?)
-            // Rulers should align with grid.
-            // Screen coords of top-left grid corner:
-            const tlX = transform.x;
-            const tlY = transform.y;
+            // 7. Axis Rulers (center-based coordinates)
+            // Calculate center position in screen coordinates
+            const centerScreenX = transform.x;
+            const centerScreenY = transform.y;
             const cellSize = transform.k;
 
             ctx.font = '10px monospace';
@@ -299,45 +355,50 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             // const xStart = Math.floor(-transform.x / transform.k); // Visible start
             // Just iterate relevant range
 
-            // Helper to get label value (absolute or relative to start)
-            const getLabel = (index: number, startPos: number | undefined, resolution: number): string => {
+            // Helper to get label value (center-based display coordinates)
+            const getLabel = (displayCoord: number, startPos: number | undefined, resolution: number): string => {
                 if (!useRelativeCoords || startPos === undefined) {
-                    // Absolute world coordinates
-                    return (index * resolution).toFixed(2);
+                    // Absolute world coordinates (center-based)
+                    return (displayCoord * resolution).toFixed(2);
                 }
                 // Relative to start: Start becomes 0.0
-                return ((index - startPos) * resolution).toFixed(2);
+                const startDisplay = internalToDisplay(startPos, 0).x;
+                return ((displayCoord - startDisplay) * resolution).toFixed(2);
             };
 
-            for (let i = 0; i <= activeW; i += Math.max(1, step)) {
-                // Determine label value
-                const val = useRelativeCoords && metadata?.start
-                    ? getLabel(i, metadata.start.x, metadata.resolution)
-                    : i.toString();
-                const sx = tlX + i * cellSize;
-                if (sx > 0 && sx < clientWidth) {
-                    ctx.fillText(val, sx, tlY - 4);
+            // X Axis Ruler (center-based: negative to positive)
+            const minDisplayX = -centerX;
+            const maxDisplayX = activeW - centerX;
+            for (let displayX = minDisplayX; displayX <= maxDisplayX; displayX += Math.max(1, step)) {
+                const screenX = centerScreenX + displayX * cellSize;
+                if (screenX > 0 && screenX < clientWidth) {
+                    const val = useRelativeCoords && metadata?.start
+                        ? getLabel(displayX, metadata.start.x, metadata.resolution)
+                        : displayX.toString();
+                    ctx.fillText(val, screenX, centerScreenY - 4);
                     // Tick mark
                     ctx.beginPath();
-                    ctx.moveTo(sx, tlY);
-                    ctx.lineTo(sx, tlY - 3);
+                    ctx.moveTo(screenX, centerScreenY);
+                    ctx.lineTo(screenX, centerScreenY - 3);
                     ctx.stroke();
                 }
             }
 
-            // Y Axis
+            // Y Axis Ruler (center-based: negative to positive, up is positive)
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            for (let i = 0; i <= activeH; i += Math.max(1, step)) {
-                const val = useRelativeCoords && metadata?.start
-                    ? getLabel(i, metadata.start.y, metadata.resolution)
-                    : i.toString();
-                const sy = tlY + i * cellSize;
-                if (sy > 0 && sy < clientHeight) {
-                    ctx.fillText(val, tlX - 8, sy);
+            const minDisplayY = -centerY;
+            const maxDisplayY = activeH - centerY;
+            for (let displayY = minDisplayY; displayY <= maxDisplayY; displayY += Math.max(1, step)) {
+                const screenY = centerScreenY + displayY * cellSize;
+                if (screenY > 0 && screenY < clientHeight) {
+                    const val = useRelativeCoords && metadata?.start
+                        ? getLabel(-displayY, metadata.start.y, metadata.resolution) // Negate Y so up is positive
+                        : (-displayY).toString(); // Negate so up is positive
+                    ctx.fillText(val, centerScreenX - 8, screenY);
                     ctx.beginPath();
-                    ctx.moveTo(tlX, sy);
-                    ctx.lineTo(tlX - 5, sy);
+                    ctx.moveTo(centerScreenX, screenY);
+                    ctx.lineTo(centerScreenX - 5, screenY);
                     ctx.stroke();
                 }
             }
@@ -381,23 +442,26 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             // Actually resize handles intercept events via stopsPropagation.
 
             const rect = containerRef.current.getBoundingClientRect();
-            const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const display = screenToDisplay(mouseX, mouseY);
+            const internal = displayToInternal(display.x, display.y);
 
-            // Bounds check
-            if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height) return;
+            // Bounds check (internal coordinates)
+            if (internal.x < 0 || internal.x >= width || internal.y < 0 || internal.y >= height) return;
 
             if (tool === 'pencil' || tool === 'eraser') {
                 setIsDrawing(true);
-                lastPosRef.current = pos;
-                modifyGrid([{ x: pos.x, y: pos.y }], tool === 'pencil' ? CELL_OCCUPIED : CELL_FREE);
+                lastPosRef.current = internal; // Store internal for drawing
+                modifyGrid([{ x: internal.x, y: internal.y }], tool === 'pencil' ? CELL_OCCUPIED : CELL_FREE);
             } else if (tool === 'rect') {
                 setIsDrawing(true);
-                startPosRef.current = pos;
-                setPreviewRect({ x: pos.x, y: pos.y, w: 1, h: 1 });
+                startPosRef.current = internal; // Store internal for rect
+                setPreviewRect({ x: internal.x, y: internal.y, w: 1, h: 1 });
             } else if (tool === 'start') {
-                onSetStart?.(pos.x, pos.y);
+                onSetStart?.(internal.x, internal.y);
             } else if (tool === 'goal') {
-                onSetGoal?.(pos.x, pos.y);
+                onSetGoal?.(internal.x, internal.y);
             }
         }
     };
@@ -407,11 +471,13 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
         const rect = containerRef.current.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const pos = screenToWorld(mouseX, mouseY);
 
-        // Update Hover Coord
-        if (pos.x >= 0 && pos.x < activeW && pos.y >= 0 && pos.y < activeH) {
-            setHoverCoord(pos);
+        // Update Hover Coord (in display coordinates)
+        const display = screenToDisplay(mouseX, mouseY);
+        const internal = displayToInternal(display.x, display.y);
+        
+        if (internal.x >= 0 && internal.x < activeW && internal.y >= 0 && internal.y < activeH) {
+            setHoverCoord(display); // Store display coordinates for hover
         } else {
             setHoverCoord(null);
         }
@@ -428,19 +494,22 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
 
         // Draw
         if (isDrawing) {
+            const display = screenToDisplay(mouseX, mouseY);
+            const internal = displayToInternal(display.x, display.y);
+            
             if (tool === 'rect' && startPosRef.current) {
                 const sx = startPosRef.current.x;
                 const sy = startPosRef.current.y;
                 setPreviewRect({
-                    x: Math.min(sx, pos.x),
-                    y: Math.min(sy, pos.y),
-                    w: Math.abs(pos.x - sx) + 1,
-                    h: Math.abs(pos.y - sy) + 1
+                    x: Math.min(sx, internal.x),
+                    y: Math.min(sy, internal.y),
+                    w: Math.abs(internal.x - sx) + 1,
+                    h: Math.abs(internal.y - sy) + 1
                 });
             } else if ((tool === 'pencil' || tool === 'eraser') && lastPosRef.current) {
-                const points = bresenham(lastPosRef.current.x, lastPosRef.current.y, pos.x, pos.y);
+                const points = bresenham(lastPosRef.current.x, lastPosRef.current.y, internal.x, internal.y);
                 modifyGrid(points, tool === 'pencil' ? CELL_OCCUPIED : CELL_FREE);
-                lastPosRef.current = { x: pos.x, y: pos.y };
+                lastPosRef.current = { x: internal.x, y: internal.y };
             }
         }
     };
