@@ -15,6 +15,7 @@ function App() {
     gridData,
     metadata,
     updateGrid,
+    updateMetadata,
     resize,
     clearGrid,
     setStart,
@@ -69,22 +70,31 @@ function App() {
 
     try {
       const text = await file.text();
-      // Try JSON first
-      const json = JSON.parse(text);
-      // Dynamic import validators
-      const { GridImportSchema } = await import('./utils/validators');
+      const fileName = file.name.toLowerCase();
+      
+      // Determine file type by extension
+      if (fileName.endsWith('.csv')) {
+        // Parse CSV
+        const { parseCSV } = await import('./utils/csvParser');
+        const parsed = parseCSV(text, metadata.resolution);
+        
+        // Update grid and metadata
+        updateGrid(parsed.data, parsed.width, parsed.height);
+        updateMetadata(parsed.metadata);
+      } else {
+        // Try JSON
+        const json = JSON.parse(text);
+        const { GridImportSchema } = await import('./utils/validators');
+        const parsed = GridImportSchema.parse(json);
 
-      const parsed = GridImportSchema.parse(json);
-
-      // Convert number[] back to Int8Array
-      const newData = new Int8Array(parsed.data);
-
-      updateGrid(newData, parsed.width, parsed.height);
-      // Metadata? Hook has metadata state. We should update it.
-      // I need to export setMetadata from useGrid.
+        // Convert number[] back to Int8Array
+        const newData = new Int8Array(parsed.data);
+        updateGrid(newData, parsed.width, parsed.height);
+        updateMetadata(parsed.metadata);
+      }
     } catch (err) {
       console.error("Import failed:", err);
-      alert("Invalid file format");
+      alert(`Import failed: ${err instanceof Error ? err.message : 'Invalid file format'}`);
     }
 
     // Reset input
@@ -176,7 +186,7 @@ function App() {
 
           <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md text-sm font-medium transition-colors cursor-pointer text-gray-700">
             <Upload size={16} /> Import
-            <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+            <input type="file" accept=".json,.csv" className="hidden" onChange={handleImport} />
           </label>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 cursor-pointer">

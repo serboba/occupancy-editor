@@ -126,12 +126,18 @@ export function useGrid({ initialWidth, initialHeight, initialResolution }: UseG
         updateGrid(newData, newWidth, newHeight);
     }, [width, height, gridData, updateGrid]);
 
+    const updateMetadata = useCallback((newMetadata: GridMetadata) => {
+        setMetadata(newMetadata);
+        saveToHistory({ width, height, data: gridData, metadata: newMetadata });
+    }, [width, height, gridData, saveToHistory]);
+
     return {
         width,
         height,
         gridData,
         metadata,
         updateGrid,
+        updateMetadata,
         undo,
         redo,
         resize: resizeGrid,
