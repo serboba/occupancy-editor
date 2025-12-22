@@ -81,23 +81,40 @@ function App() {
         const { parseCSV } = await import('./utils/csvParser');
         const parsed = parseCSV(text, metadata.resolution);
         
-        // Always set start to (0,0) when importing
-        // If goal exists, adjust it relative to the original start position
+        // CSV exports start/goal in DISPLAY coordinates (center-based, (0,0) at center)
+        // We need to convert them to INTERNAL coordinates (0-based, top-left origin) for storage
+        const centerX = Math.floor(parsed.width / 2);
+        const centerY = Math.floor(parsed.height / 2);
+        const displayToInternal = (dx: number, dy: number) => ({
+          x: dx + centerX,
+          y: dy + centerY
+        });
+        
         const adjustedMetadata = { ...parsed.metadata };
+        
+        // CSV start is in display coordinates (typically (0,0) at center)
+        // Convert to internal coordinates for storage
         if (parsed.metadata.start) {
-          const originalStart = parsed.metadata.start;
-          // Set start to (0,0)
-          adjustedMetadata.start = { x: 0, y: 0 };
-          // Adjust goal relative to original start
-          if (parsed.metadata.goal) {
-            adjustedMetadata.goal = {
-              x: parsed.metadata.goal.x - originalStart.x,
-              y: parsed.metadata.goal.y - originalStart.y
-            };
-          }
+          const startInternal = displayToInternal(parsed.metadata.start.x, parsed.metadata.start.y);
+          adjustedMetadata.start = startInternal;
         } else {
-          // If no start in CSV, set it to (0,0)
-          adjustedMetadata.start = { x: 0, y: 0 };
+          // If no start in CSV, set it to center (display 0,0 = internal centerX,centerY)
+          adjustedMetadata.start = { x: centerX, y: centerY };
+        }
+        
+        // CSV goal is in display coordinates, relative to start
+        // If start is at display (0,0), goal at display (gx,gy) means absolute display (gx,gy)
+        // Convert to internal coordinates
+        if (parsed.metadata.goal) {
+          // Goal in CSV is relative to start in display coords
+          // If start is at display (0,0), goal display = goal value from CSV
+          const startDisplay = parsed.metadata.start || { x: 0, y: 0 };
+          const goalDisplay = {
+            x: startDisplay.x + parsed.metadata.goal.x,
+            y: startDisplay.y + parsed.metadata.goal.y
+          };
+          const goalInternal = displayToInternal(goalDisplay.x, goalDisplay.y);
+          adjustedMetadata.goal = goalInternal;
         }
         
         // Update grid and metadata
@@ -109,25 +126,63 @@ function App() {
         const { GridImportSchema } = await import('./utils/validators');
         const parsed = GridImportSchema.parse(json);
 
-        // Always set start to (0,0) when importing
-        // If goal exists, adjust it relative to the original start position
-        // Cast to GridMetadata since the schema doesn't include optional start/goal
+        // JSON exports may have start/goal in different formats
+        // Check if they're in internal or display coordinates by checking if they're within bounds
+        // For now, assume JSON stores in internal coordinates (0-based) like the original format
+        // But if start/goal are outside bounds, they might be in display coordinates
         const parsedMeta = parsed.metadata as GridMetadata;
         const adjustedMetadata: GridMetadata = { ...parsedMeta };
-        const originalStart = parsedMeta.start;
-        if (originalStart) {
-          // Set start to (0,0)
-          adjustedMetadata.start = { x: 0, y: 0 };
-          // Adjust goal relative to original start
-          if (parsedMeta.goal) {
-            adjustedMetadata.goal = {
-              x: parsedMeta.goal.x - originalStart.x,
-              y: parsedMeta.goal.y - originalStart.y
-            };
+        
+        // If start/goal exist and are outside internal coordinate bounds, convert from display
+        const centerX = Math.floor(parsed.width / 2);
+        const centerY = Math.floor(parsed.height / 2);
+        const displayToInternal = (dx: number, dy: number) => ({
+          x: dx + centerX,
+          y: dy + centerY
+        });
+        
+        if (parsedMeta.start) {
+          // Check if start is in display coordinates (likely negative or > width/height)
+          const isDisplayCoords = parsedMeta.start.x < 0 || parsedMeta.start.x >= parsed.width ||
+                                  parsedMeta.start.y < 0 || parsedMeta.start.y >= parsed.height;
+          
+          if (isDisplayCoords) {
+            // Convert from display to internal
+            const startInternal = displayToInternal(parsedMeta.start.x, parsedMeta.start.y);
+            adjustedMetadata.start = startInternal;
+          } else {
+            // Already in internal coordinates
+            adjustedMetadata.start = parsedMeta.start;
           }
         } else {
-          // If no start in JSON, set it to (0,0)
-          adjustedMetadata.start = { x: 0, y: 0 };
+          // If no start in JSON, set it to center (display 0,0 = internal centerX,centerY)
+          adjustedMetadata.start = { x: centerX, y: centerY };
+        }
+        
+        if (parsedMeta.goal) {
+          // Check if goal is in display coordinates
+          const isDisplayCoords = parsedMeta.goal.x < 0 || parsedMeta.goal.x >= parsed.width ||
+                                  parsedMeta.goal.y < 0 || parsedMeta.goal.y >= parsed.height;
+          
+          if (isDisplayCoords) {
+            // Goal might be relative to start, or absolute in display coords
+            // If start exists, goal might be relative; otherwise absolute
+            const startDisplay = parsedMeta.start ? 
+              (parsedMeta.start.x < 0 || parsedMeta.start.x >= parsed.width ? 
+                parsedMeta.start : 
+                { x: parsedMeta.start.x - centerX, y: parsedMeta.start.y - centerY }) :
+              { x: 0, y: 0 };
+            
+            const goalDisplay = {
+              x: startDisplay.x + parsedMeta.goal.x,
+              y: startDisplay.y + parsedMeta.goal.y
+            };
+            const goalInternal = displayToInternal(goalDisplay.x, goalDisplay.y);
+            adjustedMetadata.goal = goalInternal;
+          } else {
+            // Already in internal coordinates
+            adjustedMetadata.goal = parsedMeta.goal;
+          }
         }
 
         // Convert number[] back to Int8Array
