@@ -276,6 +276,21 @@ function App() {
                 if (!isNaN(val) && val > 0) resize(width, val, 0, 0);
               }}
             />
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+            <span className="text-gray-500 px-1 text-xs font-bold">Res:</span>
+            <select
+              value={metadata.resolution}
+              onChange={(e) => {
+                const newRes = parseFloat(e.target.value);
+                updateMetadata({ ...metadata, resolution: newRes });
+              }}
+              className="w-16 bg-transparent text-center focus:outline-none focus:ring-1 rounded text-sm"
+            >
+              <option value="0.25">0.25</option>
+              <option value="0.5">0.5</option>
+              <option value="0.75">0.75</option>
+              <option value="1.0">1.0</option>
+            </select>
           </div>
 
           <div className="w-px h-6 bg-gray-200" />

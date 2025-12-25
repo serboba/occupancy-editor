@@ -21,6 +21,7 @@ export function parseCSV(csvText: string, defaultResolution: number = 0.05): Par
     const dataRows: string[] = [];
     let start: { x: number; y: number } | undefined;
     let goal: { x: number; y: number } | undefined;
+    let resolution: number | undefined;
 
     // Parse comment lines and collect data rows
     for (const line of lines) {
@@ -30,8 +31,14 @@ export function parseCSV(csvText: string, defaultResolution: number = 0.05): Par
         if (trimmed.startsWith('#')) {
             // Parse metadata comments
             const parts = trimmed.substring(1).trim().split(',');
-            if (parts.length >= 3) {
-                const type = parts[0].trim();
+            const type = parts[0].trim();
+            
+            if (type === 'resolution' && parts.length >= 2) {
+                const res = parseFloat(parts[1].trim());
+                if (!isNaN(res) && res > 0) {
+                    resolution = res;
+                }
+            } else if (parts.length >= 3) {
                 const x = parseInt(parts[1].trim(), 10);
                 const y = parseInt(parts[2].trim(), 10);
                 
@@ -81,7 +88,7 @@ export function parseCSV(csvText: string, defaultResolution: number = 0.05): Par
 
     // Create metadata
     const metadata: GridMetadata = {
-        resolution: defaultResolution,
+        resolution: resolution !== undefined ? resolution : defaultResolution,
         origin: { x: 0, y: 0, theta: 0 },
         start,
         goal
