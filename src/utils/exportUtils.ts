@@ -102,7 +102,6 @@ export const generateCSV = (data: GridData, width: number, height: number, metad
     
     // Add metadata as comments at the top
     if (finalMetadata) {
-        csv += `# resolution,${finalMetadata.resolution}\n`;
         if (finalMetadata.start) {
             csv += `# start,${finalMetadata.start.x},${finalMetadata.start.y}\n`;
         }

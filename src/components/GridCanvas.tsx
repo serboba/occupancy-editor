@@ -98,7 +98,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
     React.useImperativeHandle(ref, () => ({
         resetView: fitView
     }));
-    
+
     // Helper: Screen to Display coordinates (center-based)
     const screenToDisplay = useCallback((sx: number, sy: number) => {
         // transform.x and transform.y represent the center point in screen coordinates
@@ -268,7 +268,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
             ctx.strokeStyle = '#000000';
             // Border around the entire active area (0,0 to activeW,activeH in transformed space)
             ctx.strokeRect(0, 0, activeW, activeH);
-            
+
             // 4.5. Center axes (highlight 0,0)
             ctx.lineWidth = 1 / transform.k;
             ctx.strokeStyle = '#3b82f6'; // Blue for center axes
@@ -287,7 +287,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
                 // Convert to transformed space: add centerX/centerY
                 const px = p.x + centerX;
                 const py = p.y + centerY;
-                
+
                 // Check if within bounds (in display coordinates)
                 if (p.x >= minX && p.x < maxX && p.y >= minY && p.y < maxY) {
                     ctx.fillStyle = color;
@@ -484,7 +484,7 @@ export const GridCanvas = React.forwardRef<GridCanvasHandle, GridCanvasProps>(({
         // Update Hover Coord (in display coordinates)
         const display = screenToDisplay(mouseX, mouseY);
         const internal = displayToInternal(display.x, display.y);
-        
+
         if (internal.x >= 0 && internal.x < activeW && internal.y >= 0 && internal.y < activeH) {
             setHoverCoord(display); // Store display coordinates for hover
         } else {

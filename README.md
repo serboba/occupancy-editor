@@ -59,9 +59,9 @@ npm run dev
 Open [http://localhost:5173](http://localhost:5173) to view the editor.
 
 ### Building for Production
-```bash
-npm run build
-```
+   ```bash
+   npm run build
+   ```
 The `dist/` directory contains the static files ready for deployment.
 
 ## Usage

@@ -122,9 +122,9 @@ function App() {
         updateMetadata(adjustedMetadata);
       } else {
         // Try JSON
-        const json = JSON.parse(text);
-        const { GridImportSchema } = await import('./utils/validators');
-        const parsed = GridImportSchema.parse(json);
+      const json = JSON.parse(text);
+      const { GridImportSchema } = await import('./utils/validators');
+      const parsed = GridImportSchema.parse(json);
 
         // JSON exports may have start/goal in different formats
         // Check if they're in internal or display coordinates by checking if they're within bounds
@@ -185,9 +185,9 @@ function App() {
           }
         }
 
-        // Convert number[] back to Int8Array
-        const newData = new Int8Array(parsed.data);
-        updateGrid(newData, parsed.width, parsed.height);
+      // Convert number[] back to Int8Array
+      const newData = new Int8Array(parsed.data);
+      updateGrid(newData, parsed.width, parsed.height);
         updateMetadata(adjustedMetadata);
       }
     } catch (err) {
@@ -276,21 +276,6 @@ function App() {
                 if (!isNaN(val) && val > 0) resize(width, val, 0, 0);
               }}
             />
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-            <span className="text-gray-500 px-1 text-xs font-bold">Res:</span>
-            <select
-              value={metadata.resolution}
-              onChange={(e) => {
-                const newRes = parseFloat(e.target.value);
-                updateMetadata({ ...metadata, resolution: newRes });
-              }}
-              className="w-16 bg-transparent text-center focus:outline-none focus:ring-1 rounded text-sm"
-            >
-              <option value="0.25">0.25</option>
-              <option value="0.5">0.5</option>
-              <option value="0.75">0.75</option>
-              <option value="1.0">1.0</option>
-            </select>
           </div>
 
           <div className="w-px h-6 bg-gray-200" />
@@ -310,24 +295,24 @@ function App() {
                 title={metadata?.start ? "Shift grid so start point is at (0,0)" : "Set a start point first"}
               />
               <span className="whitespace-nowrap">Start at (0,0)</span>
-            </label>
-            <div className="flex rounded-md shadow-sm" role="group">
-              <select
-                value={exportFormat}
-                onChange={(e) => setExportFormat(e.target.value as any)}
-                className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-l-md text-sm focus:outline-none focus:ring-1 focus:ring-black"
-              >
-                <option value="ros">ROS (Zip)</option>
-                <option value="json">JSON</option>
-                <option value="csv">CSV</option>
+          </label>
+          <div className="flex rounded-md shadow-sm" role="group">
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as any)}
+              className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-l-md text-sm focus:outline-none focus:ring-1 focus:ring-black"
+            >
+              <option value="ros">ROS (Zip)</option>
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
                 <option value="png">PNG</option>
-              </select>
-              <button
-                onClick={handleExportClick}
-                className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-r-md text-sm font-medium transition-colors"
-              >
-                <Download size={16} /> Export
-              </button>
+            </select>
+            <button
+              onClick={handleExportClick}
+              className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-r-md text-sm font-medium transition-colors"
+            >
+              <Download size={16} /> Export
+            </button>
             </div>
           </div>
 
